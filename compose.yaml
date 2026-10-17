@@ -1,0 +1,74 @@
+# Runs the whole cold-monitor stack: database, backend and dashboard (and, with --profile simulator, the sensor
+# simulator). Images are built from the sibling checkouts of each repository; see README.md.
+name: cold-monitor
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: coldmonitor
+      POSTGRES_USER: coldmonitor
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coldmonitor -d coldmonitor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging: &logging
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  backend:
+    build: ${BACKEND_DIR:-../cold-monitor-backend}
+    image: cold-monitor-backend:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Telegram settings and the other backend variables come from .env
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: coldmonitor
+      DB_USER: coldmonitor
+      DB_PASSWORD: ${DB_PASSWORD}
+      SERVER_PORT: 8080
+      # the dashboard proxies /api on its own origin, so browsers never call the backend cross-origin
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${DASHBOARD_PORT:-8090}}
+    logging: *logging
+
+  dashboard:
+    build: ${DASHBOARD_DIR:-../cold-monitor-dashboard}
+    image: cold-monitor-dashboard:local
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${DASHBOARD_BIND:-0.0.0.0}:${DASHBOARD_PORT:-8090}:80"
+    logging: *logging
+
+  simulator:
+    profiles: [simulator]
+    build: ${SIMULATOR_DIR:-../cold-monitor-simulator}
+    image: cold-monitor-simulator:local
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      COLD_MONITOR_URL: http://backend:8080
+      SIM_INTERVAL: ${SIM_INTERVAL:-5s}
+      SIM_EXCURSION_PROBABILITY: ${SIM_EXCURSION_PROBABILITY:-0.02}
+    logging: *logging
+
+volumes:
+  postgres-data:
