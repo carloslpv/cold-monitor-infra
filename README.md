@@ -17,7 +17,7 @@ This repository runs the whole system around the clock with Docker Compose: Post
 [sensor simulator](https://github.com/carloslpv/cold-monitor-simulator). It is also the place to start reading about
 the project.
 
-![Dashboard with four pieces of equipment, live temperature charts against their allowed range and the latest out-of-range readings](docs/screenshots/dashboard.png)
+![The dashboard live: readings arrive every few seconds, an excursion turns a panel red and clears once the temperature is back in range](docs/screenshots/dashboard-live.gif)
 
 ### Repositories
 
@@ -207,7 +207,7 @@ Este repositório roda o sistema inteiro 24 horas por dia com o Docker Compose: 
 [simulador de sensores](https://github.com/carloslpv/cold-monitor-simulator). Também é o ponto de partida para
 conhecer o projeto.
 
-![Dashboard com quatro equipamentos, gráficos de temperatura ao vivo contra a faixa permitida e as últimas leituras fora da faixa](docs/screenshots/dashboard.png)
+![O dashboard ao vivo: as leituras chegam a cada poucos segundos, uma excursão deixa um painel vermelho e some quando a temperatura volta à faixa](docs/screenshots/dashboard-live.gif)
 
 ### Repositórios
 
