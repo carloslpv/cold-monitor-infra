@@ -49,7 +49,8 @@ cp .env.example .env     # then set DB_PASSWORD and, for alerts, the Telegram se
 docker compose up -d --build
 ```
 
-Open `http://localhost:8090`. To also generate readings with the simulator:
+Open `http://localhost:8090` and log in with `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env`. To also generate
+readings with the simulator (it uses `DEVICE_API_KEY` on its own):
 
 ```bash
 docker compose --profile simulator up -d --build
@@ -73,6 +74,9 @@ Settings go in `.env` next to `compose.yaml`. It is git-ignored; keep secrets th
 | Variable | Default | Description |
 | --- | --- | --- |
 | `DB_PASSWORD` | (required) | PostgreSQL password, used by the database and the backend. It is applied when the volume is first created; changing it later needs `ALTER USER` inside PostgreSQL |
+| `ADMIN_USERNAME` | `admin` | User who logs in to the dashboard |
+| `ADMIN_PASSWORD` | (required) | Their password, at least 8 characters. Change it here and run `docker compose up -d` to apply |
+| `DEVICE_API_KEY` | (required) | Key sensors send in the `X-API-Key` header, at least 16 characters (`openssl rand -hex 32`) |
 | `DASHBOARD_PORT` | `8090` | Host port of the dashboard and the API |
 | `DASHBOARD_BIND` | `0.0.0.0` | Host address the port listens on. `127.0.0.1` keeps it off the local network |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | (empty) | Telegram alerts (see the backend README) |
@@ -82,7 +86,9 @@ Settings go in `.env` next to `compose.yaml`. It is git-ignored; keep secrets th
 The whole `.env` is also passed to the backend, so any backend variable (`ALERT_OFFLINE_AFTER`, `ALERT_TIME_ZONE`, …)
 can be set there. Database connection settings are fixed by the compose file.
 
-Sensors on the local network send readings to `http://<this machine>:8090/api/v1/equipment/{id}/readings`.
+Sensors on the local network send readings to `http://<this machine>:8090/api/v1/equipment/{id}/readings` with the
+header `X-API-Key: <DEVICE_API_KEY>`. Logins are kept in the database, so rebuilding or restarting the backend does
+not log anyone out.
 
 ### Backups
 
@@ -144,7 +150,8 @@ cp .env.example .env     # depois defina DB_PASSWORD e, para os alertas, as conf
 docker compose up -d --build
 ```
 
-Abra `http://localhost:8090`. Para gerar leituras com o simulador também:
+Abra `http://localhost:8090` e entre com o `ADMIN_USERNAME` / `ADMIN_PASSWORD` do `.env`. Para gerar leituras com o
+simulador também (ele usa a `DEVICE_API_KEY` sozinho):
 
 ```bash
 docker compose --profile simulator up -d --build
@@ -169,6 +176,9 @@ faça commit dele.
 | Variável | Padrão | Descrição |
 | --- | --- | --- |
 | `DB_PASSWORD` | (obrigatória) | Senha do PostgreSQL, usada pelo banco e pelo backend. Ela vale quando o volume é criado; para trocar depois, use `ALTER USER` dentro do PostgreSQL |
+| `ADMIN_USERNAME` | `admin` | Usuário que entra no dashboard |
+| `ADMIN_PASSWORD` | (obrigatória) | A senha dele, com pelo menos 8 caracteres. Mude aqui e rode `docker compose up -d` para aplicar |
+| `DEVICE_API_KEY` | (obrigatória) | Chave que os sensores enviam no cabeçalho `X-API-Key`, com pelo menos 16 caracteres (`openssl rand -hex 32`) |
 | `DASHBOARD_PORT` | `8090` | Porta do host para o dashboard e a API |
 | `DASHBOARD_BIND` | `0.0.0.0` | Endereço do host em que a porta escuta. `127.0.0.1` deixa fora da rede local |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | (vazio) | Alertas no Telegram (veja o README do backend) |
@@ -178,7 +188,9 @@ faça commit dele.
 O `.env` inteiro também é passado ao backend, então qualquer variável do backend (`ALERT_OFFLINE_AFTER`,
 `ALERT_TIME_ZONE`, …) pode ficar nele. A conexão com o banco é definida pelo próprio compose.
 
-Sensores na rede local enviam leituras para `http://<esta máquina>:8090/api/v1/equipment/{id}/readings`.
+Sensores na rede local enviam leituras para `http://<esta máquina>:8090/api/v1/equipment/{id}/readings` com o
+cabeçalho `X-API-Key: <DEVICE_API_KEY>`. Os logins ficam no banco, então refazer ou reiniciar o backend não desloga
+ninguém.
 
 ### Backup
 
