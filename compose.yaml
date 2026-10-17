@@ -41,6 +41,10 @@ services:
       DB_USER: coldmonitor
       DB_PASSWORD: ${DB_PASSWORD}
       SERVER_PORT: 8080
+      # dashboard login and the key sensors send in X-API-Key
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      DEVICE_API_KEY: ${DEVICE_API_KEY:?Set DEVICE_API_KEY in .env}
       # the dashboard proxies /api on its own origin, so browsers never call the backend cross-origin
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${DASHBOARD_PORT:-8090}}
     logging: *logging
@@ -66,6 +70,7 @@ services:
         condition: service_healthy
     environment:
       COLD_MONITOR_URL: http://backend:8080
+      COLD_MONITOR_API_KEY: ${DEVICE_API_KEY}
       SIM_INTERVAL: ${SIM_INTERVAL:-5s}
       SIM_EXCURSION_PROBABILITY: ${SIM_EXCURSION_PROBABILITY:-0.02}
     logging: *logging
