@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: cold-monitor
+    folder: cold-monitor
+    type: file
+    # changes made in the UI are not saved back; edit the JSON in observability/grafana/dashboards instead
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards

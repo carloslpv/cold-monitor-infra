@@ -1,5 +1,6 @@
 # Runs the whole cold-monitor stack: database, backend and dashboard (and, with --profile simulator, the sensor
-# simulator). Images are built from the sibling checkouts of each repository; see README.md.
+# simulator; with --profile observability, Prometheus, Loki, Alloy and Grafana). Images are built from the sibling
+# checkouts of each repository; see README.md.
 name: cold-monitor
 
 services:
@@ -75,5 +76,82 @@ services:
       SIM_EXCURSION_PROBABILITY: ${SIM_EXCURSION_PROBABILITY:-0.02}
     logging: *logging
 
+  # --- observability: metrics in Prometheus, logs in Loki, both in Grafana -----------------------------------------
+
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v3.15.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-2GB}
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    logging: *logging
+
+  loki:
+    profiles: [observability]
+    image: grafana/loki:3.7.8
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yaml", "-config.expand-env=true"]
+    environment:
+      LOKI_RETENTION: ${LOKI_RETENTION:-168h}
+    volumes:
+      - ./observability/loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+    logging: *logging
+
+  alloy:
+    profiles: [observability]
+    image: grafana/alloy:v1.20.1
+    restart: unless-stopped
+    depends_on:
+      - loki
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      # Alloy only ships the logs of this project's containers
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-cold-monitor}
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # read access to the container logs; see "Observability" in README.md
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    logging: *logging
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:13.2.4
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - loki
+    # only this machine by default: set GRAFANA_BIND=0.0.0.0 to open it to the network
+    ports:
+      - "${GRAFANA_BIND:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/cold-monitor.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    logging: *logging
+
 volumes:
   postgres-data:
+  prometheus-data:
+  loki-data:
+  alloy-data:
+  grafana-data:

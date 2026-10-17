@@ -1,0 +1,68 @@
+// Ships the logs of this compose project's containers to Loki. Alloy reads them from the Docker API, so the services
+// keep logging to stdout and nothing in them changes.
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+
+  // only this stack, not every container on the machine
+  filter {
+    name   = "label"
+    values = ["com.docker.compose.project=" + sys.env("COMPOSE_PROJECT")]
+  }
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "project"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.backend.receiver]
+}
+
+// The backend logs in Spring Boot's default format ("2026-10-17T20:15:02.123-03:00  WARN 1 --- [...] ..."). Stack
+// traces are folded into the line that started them, and the level becomes a label to filter on.
+loki.process "backend" {
+  forward_to = [loki.write.loki.receiver]
+
+  stage.match {
+    selector = "{service=\"backend\"}"
+
+    stage.multiline {
+      firstline     = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+      max_wait_time = "3s"
+    }
+
+    stage.regex {
+      expression = "^\\S+\\s+(?P<level>TRACE|DEBUG|INFO|WARN|ERROR)\\s"
+    }
+
+    stage.labels {
+      values = { level = "" }
+    }
+  }
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
