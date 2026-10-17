@@ -30,23 +30,7 @@ the project.
 
 ### Architecture
 
-```mermaid
-flowchart LR
-    sensors["Sensors<br/>(or the simulator)"]
-    browser["Browser<br/>React dashboard"]
-    subgraph host["Docker Compose"]
-        nginx["nginx<br/>static files + /api proxy"]
-        backend["Spring Boot backend"]
-        db[("PostgreSQL<br/>readings · excursions<br/>outages · sessions")]
-    end
-    telegram["Telegram Bot API"]
-
-    sensors -- "POST readings<br/>X-API-Key" --> nginx
-    browser -- "REST + Server-Sent Events<br/>session cookie" --> nginx
-    nginx --> backend
-    backend --> db
-    backend -- "alerts after commit" --> telegram
-```
+![Architecture: sensors and the browser reach nginx inside Docker Compose, nginx forwards /api to the Spring Boot backend, which stores data in PostgreSQL and sends alerts to Telegram](docs/architecture.svg)
 
 A reading takes this path: the sensor posts it with the device API key; the backend stores it with the equipment's
 thresholds of that moment and classifies it (`IN_RANGE`, `ABOVE_MAX`, `BELOW_MIN`); in the same transaction it opens
@@ -226,23 +210,7 @@ conhecer o projeto.
 
 ### Arquitetura
 
-```mermaid
-flowchart LR
-    sensors["Sensores<br/>(ou o simulador)"]
-    browser["Navegador<br/>dashboard React"]
-    subgraph host["Docker Compose"]
-        nginx["nginx<br/>arquivos estáticos + proxy /api"]
-        backend["Backend Spring Boot"]
-        db[("PostgreSQL<br/>leituras · excursões<br/>falhas de sensor · sessões")]
-    end
-    telegram["API de bots do Telegram"]
-
-    sensors -- "POST de leituras<br/>X-API-Key" --> nginx
-    browser -- "REST + Server-Sent Events<br/>cookie de sessão" --> nginx
-    nginx --> backend
-    backend --> db
-    backend -- "alertas após o commit" --> telegram
-```
+![Arquitetura: sensores e navegador chegam ao nginx dentro do Docker Compose, o nginx repassa /api ao backend Spring Boot, que grava no PostgreSQL e envia alertas ao Telegram](docs/architecture.pt-BR.svg)
 
 O caminho de uma leitura: o sensor a envia com a chave de API do dispositivo; o backend grava a leitura com os limites
 do equipamento naquele momento e a classifica (`IN_RANGE`, `ABOVE_MAX`, `BELOW_MIN`); na mesma transação ele abre ou
