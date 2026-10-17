@@ -1,0 +1,5 @@
+{$DEMO_SITE} {
+	# the dashboard's nginx already compresses, and Caddy flushes text/event-stream responses right away, so the live
+	# stream needs no extra setting
+	reverse_proxy dashboard:80
+}

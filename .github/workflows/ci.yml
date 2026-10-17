@@ -17,3 +17,5 @@ jobs:
         run: |
           cp .env.example .env
           docker compose --profile simulator config --quiet
+          DEMO_DOMAIN=demo.example.com VIEWER_PASSWORD=ci-viewer-password \
+            docker compose -f compose.yaml -f compose.demo.yaml config --quiet
