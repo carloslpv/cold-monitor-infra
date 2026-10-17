@@ -192,6 +192,12 @@ docker compose exec -T postgres pg_restore -U coldmonitor -d coldmonitor --clean
 GitHub Actions validates `compose.yaml`, alone and with `compose.demo.yaml`, on every push. Each application repository builds, tests and builds its
 Docker image in its own workflow.
 
+### License
+
+[PolyForm Noncommercial 1.0.0](LICENSE.md): you may read, run and modify this code for personal, study, research and
+other noncommercial purposes. Commercial use needs written permission from the author; get in touch through
+[GitHub](https://github.com/carloslpv).
+
 ---
 
 ## Português (Brasil)
@@ -385,3 +391,9 @@ docker compose exec -T postgres pg_restore -U coldmonitor -d coldmonitor --clean
 
 O GitHub Actions valida o `compose.yaml`, sozinho e com o `compose.demo.yaml`, a cada push. Cada repositório de aplicação compila, testa e gera a imagem
 Docker no próprio workflow.
+
+### Licença
+
+[PolyForm Noncommercial 1.0.0](LICENSE.md): você pode ler, rodar e modificar este código para uso pessoal, estudo,
+pesquisa e outros fins não comerciais. Uso comercial precisa de autorização por escrito do autor; entre em contato
+pelo [GitHub](https://github.com/carloslpv).
