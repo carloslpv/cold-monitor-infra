@@ -78,6 +78,13 @@ Each repository's README goes deeper into its own choices; these are the ones th
   thread (so an end never arrives before its start), with retries that honour Telegram's rate limit.
 - **Real PostgreSQL in tests.** Schema changes are Flyway migrations and Hibernate only validates the schema;
   integration tests run against PostgreSQL in Testcontainers, the same database as production.
+- **Observability with Prometheus, Loki and Grafana instead of ELK.** Everything is free, self-hosted and fits next to
+  the stack on one machine. Elasticsearch alone wants gigabytes of memory to index every word of every log line; Loki
+  only indexes a few labels (service, level) and keeps the lines compressed on disk, which is plenty for searching the
+  logs of a handful of containers. Logs are collected by Grafana Alloy (Promtail, its predecessor, reached end of life
+  in 2026) straight from Docker, so the services keep logging plain text to stdout and `docker compose logs` stays
+  readable. The backend's Actuator moves to a port of its own inside the container, so metrics are never reachable
+  through the dashboard's port, and one Grafana shows metrics and logs side by side.
 
 ### Requirements
 
@@ -113,7 +120,7 @@ Useful commands:
 | Command | What it does |
 | --- | --- |
 | `docker compose ps` | Status and health of each service |
-| `docker compose logs -f backend` | Follow the backend log |
+| `docker compose logs -f backend` | Follow the backend log (or search it in Grafana, see Observability) |
 | `git -C ../cold-monitor-backend pull && docker compose up -d --build` | Update to the latest code (same for the other repositories) |
 | `docker compose --profile simulator stop simulator` | Stop the simulator, keep the rest running |
 | `docker compose down` | Stop everything (data is kept) |
@@ -141,6 +148,56 @@ can be set there. Database connection settings are fixed by the compose file.
 Sensors on the local network send readings to `http://<this machine>:8090/api/v1/equipment/{id}/readings` with the
 header `X-API-Key: <DEVICE_API_KEY>`. Logins are kept in the database, so rebuilding or restarting the backend does
 not log anyone out.
+
+### Observability
+
+The `observability` profile adds metrics and logs, viewed in one Grafana:
+
+```bash
+docker compose --profile simulator --profile observability up -d --build
+```
+
+Open `http://localhost:3000` and log in as `admin` with `GRAFANA_ADMIN_PASSWORD` from `.env`. The **cold-monitor**
+dashboard opens first:
+
+- **Cold chain:** open excursions, offline sensors, readings per minute, alerts and failed Telegram deliveries in the
+  selected range, and one temperature chart per equipment with its allowed range drawn as dashed lines.
+- **Backend:** up/down, requests per second and p95 latency per endpoint, 5xx responses, JVM memory, CPU and database
+  connections.
+- **Logs:** backend log lines per level, the latest warnings and errors (every alert is logged as a warning), and the
+  logs of every container with a service picker and a search box. *Explore* in Grafana runs any other LogQL or PromQL
+  query.
+
+```mermaid
+flowchart LR
+    backend["backend :8081<br/>/actuator/prometheus"] -- scrape every 15 s --> prometheus[Prometheus]
+    docker[(Docker API)] -- container logs --> alloy[Alloy] --> loki[Loki]
+    prometheus --> grafana["Grafana :3000"]
+    loki --> grafana
+```
+
+| Service | Role |
+| --- | --- |
+| Prometheus | Scrapes the backend's metrics (Micrometer, via Spring Boot Actuator) and keeps them for 15 days |
+| Loki | Stores the logs for 7 days |
+| Alloy | Reads the logs of this project's containers from the Docker API, folds stack traces into one entry and labels backend lines with their level |
+| Grafana | Dashboards and Explore, with both data sources and the dashboard provisioned from `observability/grafana` |
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `GRAFANA_ADMIN_PASSWORD` | `admin` | Password of the Grafana `admin` user. Set it in `.env` before the first start; afterwards change it in Grafana or with `docker compose exec grafana grafana cli admin reset-admin-password <new>` |
+| `GRAFANA_PORT` | `3000` | Host port of Grafana |
+| `GRAFANA_BIND` | `127.0.0.1` | Host address Grafana listens on; only this machine by default |
+| `PROMETHEUS_RETENTION`, `PROMETHEUS_RETENTION_SIZE` | `15d`, `2GB` | How long, and up to how much disk, metrics are kept |
+| `LOKI_RETENTION` | `168h` | How long logs are kept |
+
+Only Grafana gets a host port. The backend serves its Actuator (health and metrics) on port 8081 inside the Docker
+network, which nginx does not proxy, so `/actuator` is never reachable through the dashboard's port. The dashboard
+is provisioned read-only: change `observability/grafana/dashboards/cold-monitor.json` (or save a copy in Grafana)
+rather than editing it in place.
+
+Alloy needs the Docker socket to read container logs. Access to that socket is effectively root on the machine, which
+is acceptable on a machine that runs only this stack; Alloy is not reachable from outside and only reads logs.
 
 ### Public demo
 
@@ -173,7 +230,8 @@ docker compose exec -T postgres pg_restore -U coldmonitor -d coldmonitor --clean
 
 ### Continuous integration
 
-GitHub Actions validates `compose.yaml`, alone and with `compose.demo.yaml`, on every push. Each application repository builds, tests and builds its
+GitHub Actions validates `compose.yaml`, alone and with `compose.demo.yaml`, and the Prometheus, Loki, Alloy and
+Grafana configuration on every push. Each application repository builds, tests and builds its
 Docker image in its own workflow.
 
 ### License
@@ -260,6 +318,13 @@ O README de cada repositório detalha as escolhas dele; estas são as que dão f
   envio do Telegram.
 - **PostgreSQL de verdade nos testes.** Mudanças de schema são migrações do Flyway e o Hibernate só valida o schema; os
   testes de integração rodam contra o PostgreSQL no Testcontainers, o mesmo banco da produção.
+- **Observabilidade com Prometheus, Loki e Grafana em vez de ELK.** Tudo é gratuito, self-hosted e cabe ao lado da
+  stack numa máquina só. Só o Elasticsearch já pede gigabytes de memória para indexar cada palavra de cada linha de log;
+  o Loki indexa só alguns labels (serviço, nível) e guarda as linhas comprimidas em disco, o que basta para pesquisar
+  os logs de poucos containers. Quem coleta os logs é o Grafana Alloy (o Promtail, que fazia isso antes, chegou ao fim
+  da vida em 2026), direto do Docker, então os serviços continuam escrevendo texto simples no stdout e o
+  `docker compose logs` continua legível. O Actuator do backend ganha uma porta própria dentro do container, então as
+  métricas nunca ficam acessíveis pela porta do dashboard, e um único Grafana mostra métricas e logs lado a lado.
 
 ### Requisitos
 
@@ -326,6 +391,57 @@ Sensores na rede local enviam leituras para `http://<esta máquina>:8090/api/v1/
 cabeçalho `X-API-Key: <DEVICE_API_KEY>`. Os logins ficam no banco, então refazer ou reiniciar o backend não desloga
 ninguém.
 
+### Observabilidade
+
+O profile `observability` adiciona métricas e logs, vistos num único Grafana:
+
+```bash
+docker compose --profile simulator --profile observability up -d --build
+```
+
+Abra `http://localhost:3000` e entre como `admin` com a `GRAFANA_ADMIN_PASSWORD` do `.env`. O dashboard
+**cold-monitor** abre primeiro:
+
+- **Cadeia fria:** excursões abertas, sensores offline, leituras por minuto, alertas e entregas do Telegram que
+  falharam no período escolhido, e um gráfico de temperatura por equipamento com a faixa permitida em linhas
+  tracejadas.
+- **Backend:** no ar ou fora, requisições por segundo e latência p95 por endpoint, respostas 5xx, memória da JVM, CPU e
+  conexões com o banco.
+- **Logs:** linhas de log do backend por nível, os avisos e erros mais recentes (todo alerta é logado como aviso) e os
+  logs de todos os containers, com seletor de serviço e campo de busca. O *Explore* do Grafana roda qualquer outra
+  consulta LogQL ou PromQL.
+
+```mermaid
+flowchart LR
+    backend["backend :8081<br/>/actuator/prometheus"] -- coleta a cada 15 s --> prometheus[Prometheus]
+    docker[(Docker API)] -- logs dos containers --> alloy[Alloy] --> loki[Loki]
+    prometheus --> grafana["Grafana :3000"]
+    loki --> grafana
+```
+
+| Serviço | Papel |
+| --- | --- |
+| Prometheus | Coleta as métricas do backend (Micrometer, pelo Spring Boot Actuator) e guarda por 15 dias |
+| Loki | Guarda os logs por 7 dias |
+| Alloy | Lê os logs dos containers deste projeto pela API do Docker, junta stack traces numa entrada só e marca as linhas do backend com o nível |
+| Grafana | Dashboards e Explore, com as duas fontes de dados e o dashboard provisionados a partir de `observability/grafana` |
+
+| Variável | Padrão | Descrição |
+| --- | --- | --- |
+| `GRAFANA_ADMIN_PASSWORD` | `admin` | Senha do usuário `admin` do Grafana. Defina no `.env` antes de subir pela primeira vez; depois, troque no Grafana ou com `docker compose exec grafana grafana cli admin reset-admin-password <nova>` |
+| `GRAFANA_PORT` | `3000` | Porta do host para o Grafana |
+| `GRAFANA_BIND` | `127.0.0.1` | Endereço do host em que o Grafana escuta; por padrão, só esta máquina |
+| `PROMETHEUS_RETENTION`, `PROMETHEUS_RETENTION_SIZE` | `15d`, `2GB` | Por quanto tempo, e até quanto de disco, as métricas ficam guardadas |
+| `LOKI_RETENTION` | `168h` | Por quanto tempo os logs ficam guardados |
+
+Só o Grafana ganha porta no host. O backend serve o Actuator (health e métricas) na porta 8081 dentro da rede do
+Docker, que o nginx não repassa, então `/actuator` nunca fica acessível pela porta do dashboard. O dashboard é
+provisionado como somente leitura: altere o `observability/grafana/dashboards/cold-monitor.json` (ou salve uma cópia
+no Grafana) em vez de editar o original.
+
+O Alloy precisa do socket do Docker para ler os logs dos containers. Acesso a esse socket equivale a root na máquina, o
+que é aceitável numa máquina que roda só esta stack; o Alloy não fica acessível de fora e só lê logs.
+
 ### Demo pública
 
 O `compose.demo.yaml` transforma a stack numa demo pública em qualquer servidor Linux com Docker:
@@ -357,7 +473,8 @@ docker compose exec -T postgres pg_restore -U coldmonitor -d coldmonitor --clean
 
 ### Integração contínua
 
-O GitHub Actions valida o `compose.yaml`, sozinho e com o `compose.demo.yaml`, a cada push. Cada repositório de aplicação compila, testa e gera a imagem
+O GitHub Actions valida o `compose.yaml`, sozinho e com o `compose.demo.yaml`, e as configurações do Prometheus,
+Loki, Alloy e Grafana a cada push. Cada repositório de aplicação compila, testa e gera a imagem
 Docker no próprio workflow.
 
 ### Licença
