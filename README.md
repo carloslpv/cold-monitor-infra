@@ -31,7 +31,7 @@ publishing over MQTT, are in [cold-monitor-edge](https://github.com/carloslpv/co
 
 ### Architecture
 
-![Architecture: sensors and the browser reach nginx inside Docker Compose, nginx forwards /api to the Spring Boot backend, which stores data in PostgreSQL and sends alerts to Telegram](docs/architecture.svg)
+![Architecture: the ESP32 publishes over MQTT and the cold-monitor-edge bridge, the simulator and the browser reach nginx inside Docker Compose; nginx forwards /api to the Spring Boot backend, which stores data in PostgreSQL and sends alerts to Telegram](docs/architecture.svg)
 
 A reading takes this path: the sensor posts it with the device API key; the backend stores it with the equipment's
 thresholds of that moment and classifies it (`IN_RANGE`, `ABOVE_MAX`, `BELOW_MIN`); in the same transaction it opens
@@ -276,7 +276,7 @@ projeto.
 
 ### Arquitetura
 
-![Arquitetura: sensores e navegador chegam ao nginx dentro do Docker Compose, o nginx repassa /api ao backend Spring Boot, que grava no PostgreSQL e envia alertas ao Telegram](docs/architecture.pt-BR.svg)
+![Arquitetura: o ESP32 publica por MQTT e a ponte do cold-monitor-edge, o simulador e o navegador chegam ao nginx dentro do Docker Compose; o nginx repassa /api ao backend Spring Boot, que grava no PostgreSQL e envia alertas ao Telegram](docs/architecture.pt-BR.svg)
 
 O caminho de uma leitura: o sensor a envia com a chave de API do dispositivo; o backend grava a leitura com os limites
 do equipamento naquele momento e a classifica (`IN_RANGE`, `ABOVE_MAX`, `BELOW_MIN`); na mesma transação ele abre ou
