@@ -14,8 +14,8 @@ sensor goes silent, and again when either situation is over.
 This repository runs the whole system around the clock with Docker Compose: PostgreSQL, the
 [backend](https://github.com/carloslpv/cold-monitor-backend), the
 [dashboard](https://github.com/carloslpv/cold-monitor-dashboard) and, optionally, the
-[sensor simulator](https://github.com/carloslpv/cold-monitor-simulator). It is also the place to start reading about
-the project.
+[sensor simulator](https://github.com/carloslpv/cold-monitor-simulator). Real sensors, an ESP32 with DS18B20 probes
+publishing over MQTT, are in [cold-monitor-edge](https://github.com/carloslpv/cold-monitor-edge). It is also the place to start reading about the project.
 
 ![The dashboard live: readings arrive every few seconds, an excursion turns a panel red and clears once the temperature is back in range](docs/screenshots/dashboard-live.gif)
 
@@ -26,6 +26,7 @@ the project.
 | [cold-monitor-backend](https://github.com/carloslpv/cold-monitor-backend) | REST API, live stream, excursion and offline-sensor alerts | Java 25, Spring Boot 4.1, PostgreSQL 18, Flyway, Testcontainers |
 | [cold-monitor-dashboard](https://github.com/carloslpv/cold-monitor-dashboard) | Live monitor and equipment management | React 19, TypeScript 6, Vite 8, Recharts |
 | [cold-monitor-simulator](https://github.com/carloslpv/cold-monitor-simulator) | Simulated sensors with realistic temperature curves and excursions | Java 25 (no framework), virtual threads |
+| [cold-monitor-edge](https://github.com/carloslpv/cold-monitor-edge) | ESP32 firmware for DS18B20 probes, MQTT broker (Mosquitto or RabbitMQ) and the bridge that posts readings to the backend | C (ESP-IDF), Java 25, Spring Boot 4.1 |
 | cold-monitor-infra (this one) | Docker Compose for the whole system and the public demo | Docker Compose, nginx, Caddy |
 
 ### Architecture
@@ -36,6 +37,11 @@ A reading takes this path: the sensor posts it with the device API key; the back
 thresholds of that moment and classifies it (`IN_RANGE`, `ABOVE_MAX`, `BELOW_MIN`); in the same transaction it opens
 or closes an excursion or a sensor outage; once the transaction commits, the reading goes to every open dashboard over
 Server-Sent Events and any alert goes to Telegram on a background thread.
+
+Real devices do not call the backend themselves. The ESP32 publishes each reading to an MQTT broker, and the bridge in
+[cold-monitor-edge](https://github.com/carloslpv/cold-monitor-edge) posts it to the same endpoint with the device API key, so the backend keeps a single way in
+and treats a real probe and a simulated one alike. The edge stack runs in its own compose, pointed at this one's
+address.
 
 - Only the dashboard publishes a port. nginx serves the page and forwards `/api` (REST and the live stream) to the
   backend, so browsers and sensors use one address and CORS is not involved. PostgreSQL and the backend are reachable
@@ -252,8 +258,9 @@ sai da faixa, quando o sensor dele fica em silêncio, e de novo quando cada situ
 Este repositório roda o sistema inteiro 24 horas por dia com o Docker Compose: PostgreSQL, o
 [backend](https://github.com/carloslpv/cold-monitor-backend), o
 [dashboard](https://github.com/carloslpv/cold-monitor-dashboard) e, se quiser, o
-[simulador de sensores](https://github.com/carloslpv/cold-monitor-simulator). Também é o ponto de partida para
-conhecer o projeto.
+[simulador de sensores](https://github.com/carloslpv/cold-monitor-simulator). Os sensores reais, um ESP32 com
+sondas DS18B20 publicando por MQTT, estão no [cold-monitor-edge](https://github.com/carloslpv/cold-monitor-edge). Também é o ponto de partida para conhecer o
+projeto.
 
 ![O dashboard ao vivo: as leituras chegam a cada poucos segundos, uma excursão deixa um painel vermelho e some quando a temperatura volta à faixa](docs/screenshots/dashboard-live.gif)
 
@@ -264,6 +271,7 @@ conhecer o projeto.
 | [cold-monitor-backend](https://github.com/carloslpv/cold-monitor-backend) | API REST, fluxo ao vivo, alertas de excursão e de sensor sem leituras | Java 25, Spring Boot 4.1, PostgreSQL 18, Flyway, Testcontainers |
 | [cold-monitor-dashboard](https://github.com/carloslpv/cold-monitor-dashboard) | Monitor ao vivo e cadastro de equipamentos | React 19, TypeScript 6, Vite 8, Recharts |
 | [cold-monitor-simulator](https://github.com/carloslpv/cold-monitor-simulator) | Sensores simulados com curvas de temperatura e excursões realistas | Java 25 (sem framework), virtual threads |
+| [cold-monitor-edge](https://github.com/carloslpv/cold-monitor-edge) | Firmware do ESP32 para sondas DS18B20, broker MQTT (Mosquitto ou RabbitMQ) e a ponte que envia as leituras ao backend | C (ESP-IDF), Java 25, Spring Boot 4.1 |
 | cold-monitor-infra (este) | Docker Compose do sistema inteiro e da demo pública | Docker Compose, nginx, Caddy |
 
 ### Arquitetura
@@ -274,6 +282,11 @@ O caminho de uma leitura: o sensor a envia com a chave de API do dispositivo; o 
 do equipamento naquele momento e a classifica (`IN_RANGE`, `ABOVE_MAX`, `BELOW_MIN`); na mesma transação ele abre ou
 fecha uma excursão ou uma falha de sensor; depois do commit, a leitura vai para todos os dashboards abertos por
 Server-Sent Events e qualquer alerta vai para o Telegram numa thread em segundo plano.
+
+Os dispositivos reais não chamam o backend diretamente. O ESP32 publica cada leitura num broker MQTT, e a ponte do
+[cold-monitor-edge](https://github.com/carloslpv/cold-monitor-edge) a envia para o mesmo endpoint com a chave de API do dispositivo. Assim o backend continua com
+uma única porta de entrada e trata igual uma sonda real e uma simulada. A parte de borda roda num compose próprio,
+apontado para o endereço deste.
 
 - Só o dashboard publica uma porta. O nginx serve a página e repassa `/api` (REST e o fluxo ao vivo) para o backend,
   então navegadores e sensores usam um único endereço e o CORS não entra em jogo. O PostgreSQL e o backend só são
