@@ -132,6 +132,9 @@ Useful commands:
 | `docker compose down` | Stop everything (data is kept) |
 | `docker compose down -v` | Stop everything and **delete the database** |
 
+To run cold-monitor together with real ESP32 sensors and machine-telemetry on one computer, as a portable demo,
+[`maleta/`](maleta) has a single command that starts the three stacks with their ports sorted out.
+
 ### Configuration
 
 Settings go in `.env` next to `compose.yaml`. It is git-ignored; keep secrets there and never commit it.
@@ -379,6 +382,9 @@ Comandos úteis:
 | `docker compose --profile simulator stop simulator` | Para o simulador e mantém o resto rodando |
 | `docker compose down` | Para tudo (os dados ficam) |
 | `docker compose down -v` | Para tudo e **apaga o banco** |
+
+Para rodar o cold-monitor junto com ESP32 de verdade e o machine-telemetry num computador só, como demonstração
+portátil, a pasta [`maleta/`](maleta) tem um comando que sobe as três partes com as portas já resolvidas.
 
 ### Configuração
 
